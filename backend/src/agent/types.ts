@@ -1,0 +1,95 @@
+export interface Tool {
+  name: string
+  description: string
+  input_schema: {
+    type: 'object'
+    properties: Record<string, {
+      type: string
+      description: string
+      enum?: string[]
+    }>
+    required: string[]
+  }
+}
+
+export interface ToolResult {
+  toolName: string
+  result: unknown
+}
+
+export interface AgentMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export type ExamDomain =
+  | 'Cloud Concepts'
+  | 'Security & Compliance'
+  | 'Cloud Technology & Services'
+  | 'Billing, Pricing & Support'
+
+export type KnowledgeLevel = 'beginner' | 'intermediate' | 'advanced'
+
+export type Difficulty = 'easy' | 'medium' | 'hard'
+
+export interface TopicProgressData {
+  topic: string
+  domain: ExamDomain
+  correctAnswers: number
+  totalAnswers: number
+  weakScore: number
+  lastStudied: Date
+}
+
+export interface WeakTopicsResult {
+  roadmapWeek: number
+  examDate: Date | null | undefined
+  topicProgress: TopicProgressData[]
+  weakTopics: string[]
+  mediumTopics: string[]
+  strongTopics: string[]
+  recommendation: string
+}
+
+export interface RoadmapResult {
+  daysUntilExam: number
+  totalWeeks: number
+  domains: {
+    name: ExamDomain
+    weight: number
+    topics: string[]
+  }[]
+  knowledgeLevel: KnowledgeLevel
+  weakTopics: string[]
+  recommendedDailyStudyHours: number
+  startingTopic: string
+  startingDomain: ExamDomain
+}
+
+export interface QuizResult {
+  topic: string
+  difficulty: Difficulty
+  questionCount: number
+  roadmapWeek: string
+  completedTopics: string[]
+  instruction: string
+}
+
+export interface EvaluateAnswerResult {
+  isCorrect: boolean
+  topic: string
+  instruction: string
+}
+
+export interface TrackProgressResult {
+  progress: TopicProgressData
+  message: string
+}
+
+export interface UserContext {
+  userId: string
+  email: string
+  roadmapWeek: number
+  knowledgeLevel: KnowledgeLevel
+  examDate: Date | null
+}
