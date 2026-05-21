@@ -1,4 +1,5 @@
-import { Tool } from '../types'
+import { PrismaService } from '../../prisma/prisma.service'
+import { Tool, RoadmapResult, KnowledgeLevel, ExamDomain } from '../types'
 
 export const generateRoadmapTool: Tool = {
   name: 'generate_roadmap',
@@ -24,27 +25,61 @@ export const generateRoadmapTool: Tool = {
   }
 }
 
-export async function executeGenerateRoadmap(input: {
-  examDate: string
-  knowledgeLevel: string
-  weakTopics?: string
-}) {
-  const domains = [
-    { name: 'Cloud Concepts', weight: 24 },
-    { name: 'Security & Compliance', weight: 30 },
-    { name: 'Cloud Technology & Services', weight: 34 },
-    { name: 'Billing, Pricing & Support', weight: 12 },
-  ]
+const DOMAIN_CONFIG = [
+  {
+    name: 'Cloud Concepts' as ExamDomain,
+    weight: 24,
+    topics: ['Cloud Computing Basics', 'AWS Global Infrastructure', 'Cloud Economics']
+  },
+  {
+    name: 'Security & Compliance' as ExamDomain,
+    weight: 30,
+    topics: ['IAM', 'Security Groups', 'Compliance Programs', 'Shared Responsibility Model']
+  },
+  {
+    name: 'Cloud Technology & Services' as ExamDomain,
+    weight: 34,
+    topics: ['EC2', 'S3', 'RDS', 'VPC', 'Lambda', 'CloudFront']
+  },
+  {
+    name: 'Billing, Pricing & Support' as ExamDomain,
+    weight: 12,
+    topics: ['Pricing Models', 'Cost Explorer', 'Support Plans', 'AWS Organizations']
+  },
+]
+
+export async function executeGenerateRoadmap(
+  input: {
+    examDate: string
+    knowledgeLevel: string
+    weakTopics?: string
+    userId: string
+  },
+  prisma: PrismaService
+): Promise<RoadmapResult> {
+  await prisma.user.update({
+    where: { id: input.userId },
+    data: {
+      examDate: new Date(input.examDate),
+      knowledgeLevel: input.knowledgeLevel,
+      roadmapWeek: 1,
+    }
+  })
 
   const daysUntilExam = Math.ceil(
     (new Date(input.examDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
   )
 
+  const totalWeeks = Math.floor(daysUntilExam / 7)
+
   return {
     daysUntilExam,
-    domains,
-    knowledgeLevel: input.knowledgeLevel,
+    totalWeeks,
+    domains: DOMAIN_CONFIG,
+    knowledgeLevel: input.knowledgeLevel as KnowledgeLevel,
     weakTopics: input.weakTopics?.split(',').map(t => t.trim()) ?? [],
     recommendedDailyStudyHours: daysUntilExam < 14 ? 3 : daysUntilExam < 30 ? 2 : 1,
+    startingTopic: 'Cloud Computing Basics',
+    startingDomain: 'Cloud Concepts',
   }
 }

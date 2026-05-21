@@ -3,7 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service'
 
 export const getWeakTopicsTool: Tool = {
   name: 'get_weak_topics',
-  description: 'Retrieves the user progress and weak topics from the database to determine quiz difficulty and what topics need reinforcement',
+  description: 'Retrieves the user progress per topic and difficulty level to determine next quiz difficulty and what topics need reinforcement',
   input_schema: {
     type: 'object',
     properties: {
@@ -13,7 +13,7 @@ export const getWeakTopicsTool: Tool = {
       },
       topic: {
         type: 'string',
-        description: 'Optional specific topic to check. If not provided, returns all topics'
+        description: 'Optional specific topic to check. If not provided returns all topics'
       }
     },
     required: ['userId']
@@ -30,24 +30,40 @@ export async function executeGetWeakTopics(
 
   const progress = await prisma.topicProgress.findMany({ where })
 
-  const weakTopics = progress.filter(p => p.weakScore > 60)
-  const mediumTopics = progress.filter(p => p.weakScore > 30 && p.weakScore <= 60)
-  const strongTopics = progress.filter(p => p.weakScore <= 30)
-
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
-    select: { roadmapWeek: true, examDate: true }
+    select: { roadmapWeek: true, examDate: true, knowledgeLevel: true }
   })
+
+  // Clasificamos los topics según su estado
+  const completedTopics = progress.filter(p => p.topicCompleted)
+  const inProgressTopics = progress.filter(p => !p.topicCompleted && p.easyTotal > 0)
+  const notStartedTopics = progress.filter(p => p.easyTotal === 0)
+
+  // Para cada topic en progreso, determinamos el nivel recomendado
+  const topicsWithRecommendation = inProgressTopics.map(p => ({
+    topic: p.topic,
+    domain: p.domain,
+    weakScore: p.weakScore,
+    easyCompleted: p.easyCompleted,
+    mediumCompleted: p.mediumCompleted,
+    hardCompleted: p.hardCompleted,
+    recommendedDifficulty: !p.easyCompleted ? 'easy'
+      : !p.mediumCompleted ? 'medium'
+      : 'hard'
+  }))
 
   return {
     roadmapWeek: user?.roadmapWeek ?? 1,
+    knowledgeLevel: user?.knowledgeLevel ?? 'beginner',
     examDate: user?.examDate,
-    topicProgress: progress,
-    weakTopics: weakTopics.map(t => t.topic),
-    mediumTopics: mediumTopics.map(t => t.topic),
-    strongTopics: strongTopics.map(t => t.topic),
-    recommendation: weakTopics.length > 0
-      ? `Focus on reinforcing: ${weakTopics.map(t => t.topic).join(', ')}`
-      : 'Good progress! Keep studying new topics.'
+    completedTopics: completedTopics.map(p => p.topic),
+    inProgressTopics: topicsWithRecommendation,
+    notStartedTopics: notStartedTopics.map(p => p.topic),
+    recommendation: completedTopics.length === 0 && inProgressTopics.length === 0
+      ? 'No history yet. Start with easy difficulty on the first topic of the roadmap.'
+      : topicsWithRecommendation.length > 0
+        ? `Continue with: ${topicsWithRecommendation[0].topic} at ${topicsWithRecommendation[0].recommendedDifficulty} difficulty`
+        : 'All started topics completed. Move to the next topic in the roadmap.'
   }
 }

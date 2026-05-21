@@ -18,6 +18,19 @@ model User {
 
   sessions      Session[]
   topicProgress TopicProgress[]
+  examResults   ExamResult[]
+}
+
+model ExamResult {
+  id             String   @id @default(uuid())
+  userId         String
+  score          Float
+  totalQuestions Int
+  correctAnswers Int
+  domainScores   Json
+  completedAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 model Session {
@@ -30,14 +43,25 @@ model Session {
 }
 
 model TopicProgress {
-  id             String   @id @default(uuid())
-  userId         String
-  topic          String
-  domain         String
-  correctAnswers Int      @default(0)
-  totalAnswers   Int      @default(0)
-  weakScore      Float    @default(0)
-  lastStudied    DateTime @default(now())
+  id          String   @id @default(uuid())
+  userId      String
+  topic       String
+  domain      String
+  lastStudied DateTime @default(now())
+
+  easyCorrect   Int @default(0)
+  easyTotal     Int @default(0)
+  mediumCorrect Int @default(0)
+  mediumTotal   Int @default(0)
+  hardCorrect   Int @default(0)
+  hardTotal     Int @default(0)
+
+  easyCompleted   Boolean @default(false)
+  mediumCompleted Boolean @default(false)
+  hardCompleted   Boolean @default(false)
+  topicCompleted  Boolean @default(false)
+
+  weakScore Float @default(0)
 
   user User @relation(fields: [userId], references: [id])
 

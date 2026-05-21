@@ -93,3 +93,64 @@ export interface UserContext {
   knowledgeLevel: KnowledgeLevel
   examDate: Date | null
 }
+
+export interface DomainConfig {
+  name: ExamDomain
+  weight: number
+  questionCount: number
+  topics: string[]
+  instruction?: string
+}
+
+export interface FinalExamResult {
+  ready: boolean
+  message?: string
+  pendingTopics?: string[]
+  completedCount?: number
+  totalCount?: number
+  totalQuestions?: number
+  timeLimit?: number
+  domains?: DomainConfig[]
+  previousAttempts?: number
+  bestScore?: number | null
+  instruction?: string
+}
+
+export interface ExamResultData {
+  id: string
+  userId: string
+  score: number
+  totalQuestions: number
+  correctAnswers: number
+  domainScores: Record<ExamDomain, number>
+  completedAt: Date
+}
+
+// Progreso detallado por dificultad
+export interface TopicProgressDetailed {
+  topic: string
+  domain: ExamDomain
+  weakScore: number
+  easyCompleted: boolean
+  mediumCompleted: boolean
+  hardCompleted: boolean
+  topicCompleted: boolean
+  recommendedDifficulty: Difficulty
+}
+
+export interface TrackProgressResult {
+  progress: TopicProgressData
+  topicCompleted: boolean
+  nextRecommendedDifficulty: Difficulty | null
+  message: string
+}
+
+export interface WeakTopicsResult {
+  roadmapWeek: number
+  knowledgeLevel: KnowledgeLevel
+  examDate: Date | null | undefined
+  completedTopics: string[]
+  inProgressTopics: TopicProgressDetailed[]
+  notStartedTopics: string[]
+  recommendation: string
+}
