@@ -36,12 +36,9 @@ export class RoadmapService {
       topics: topics.map((topic, index) => {
         const progress = user.topicProgress.find(p => p.topic === topic)
 
-        const previousTopic = index > 0 ? topics[index - 1] : null
-        const previousProgress = previousTopic
-          ? user.topicProgress.find(p => p.topic === previousTopic)
-          : null
+       
 
-        const isUnlocked = index === 0 || previousProgress?.topicCompleted === true
+        const isUnlocked = true
 
         return {
           topic,

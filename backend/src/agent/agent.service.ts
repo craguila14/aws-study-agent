@@ -65,85 +65,100 @@ export class AgentService {
   }
 
   async chat(userMessage: string, sessionMessages: any[], userContext: UserContext) {
-    const contextualSystemPrompt = `
-      ${SYSTEM_PROMPT}
+  const contextualSystemPrompt = `
+    ${SYSTEM_PROMPT}
 
-      CURRENT USER CONTEXT:
-      - User ID: ${userContext.userId}
-      - Knowledge level: ${userContext.knowledgeLevel}
-      - Current roadmap week: ${userContext.roadmapWeek}
-      - Exam date: ${userContext.examDate ?? 'not set yet'}
-    `
+    CURRENT USER CONTEXT:
+    - User ID: ${userContext.userId}
+    - Knowledge level: ${userContext.knowledgeLevel}
+    - Current roadmap week: ${userContext.roadmapWeek}
+    - Exam date: ${userContext.examDate ?? 'not set yet'}
+  `
 
-    const messages = [
-      ...sessionMessages,
-      { role: 'user', content: userMessage }
-    ]
+  const tools = [
+    generateRoadmapTool,
+    generateQuizTool,
+    trackProgressTool,
+    getWeakTopicsTool,
+  ]
 
-    const tools = [
-      generateRoadmapTool,
-      generateQuizTool,
-      trackProgressTool,
-      getWeakTopicsTool,
-    ]
+  const messages = [
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: contextualSystemPrompt,
+          cache_control: { type: 'ephemeral' }  
+        },
+        {
+          type: 'text',
+          text: sessionMessages.length === 0
+            ? userMessage
+            : 'Continue the conversation based on the history below.'
+        }
+      ]
+    },
+    ...sessionMessages,
+    ...(sessionMessages.length > 0
+      ? [{ role: 'user', content: userMessage }]
+      : []
+    )
+  ]
 
-    // Loop ReAct
-    let response = await this.client.messages.create({
+  let response = await this.client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 4096,
+    messages: messages as any,
+    tools: tools as any,
+  })
+
+  while (response.stop_reason === 'tool_use') {
+    const toolUseBlock = response.content.find(block => block.type === 'tool_use')
+
+    if (!toolUseBlock || toolUseBlock.type !== 'tool_use') break
+
+    const toolName = toolUseBlock.name
+    const toolInput = toolUseBlock.input as any
+
+    const toolResult = await this.executeTool(toolName, toolInput, userContext.userId)
+
+    messages.push({ role: 'assistant', content: response.content } as any)
+    messages.push({
+      role: 'user',
+      content: [
+        {
+          type: 'tool_result',
+          tool_use_id: toolUseBlock.id,
+          content: JSON.stringify(toolResult),
+        }
+      ]
+    } as any)
+
+    response = await this.client.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
-      system: contextualSystemPrompt,
-      messages,
+      messages: messages as any,
       tools: tools as any,
     })
-
-    // Mientras Claude quiera usar tools seguimos el loop
-    while (response.stop_reason === 'tool_use') {
-      const toolUseBlock = response.content.find(block => block.type === 'tool_use')
-
-      if (!toolUseBlock || toolUseBlock.type !== 'tool_use') break
-
-      const toolName = toolUseBlock.name
-      const toolInput = toolUseBlock.input as any
-
-      const toolResult = await this.executeTool(toolName, toolInput, userContext.userId)
-
-      messages.push({ role: 'assistant', content: response.content })
-      messages.push({
-        role: 'user',
-        content: [
-          {
-            type: 'tool_result',
-            tool_use_id: toolUseBlock.id,
-            content: JSON.stringify(toolResult),
-          }
-        ]
-      })
-
-      response = await this.client.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
-        system: contextualSystemPrompt,
-        messages,
-        tools: tools as any,
-      })
-    }
-
-    const finalText = response.content
-      .filter(block => block.type === 'text')
-      .map(block => block.type === 'text' ? block.text : '')
-      .join('')
-
-    const updatedMessages = [
-      ...sessionMessages,
-      { role: 'user', content: userMessage },
-      { role: 'assistant', content: finalText }
-    ]
-
-    return {
-      message: finalText,
-      updatedMessages,
-    }
   }
+
+  const finalText = response.content
+    .filter(block => block.type === 'text')
+    .map(block => block.type === 'text' ? block.text : '')
+    .join('')
+
+  const updatedMessages = [
+    ...sessionMessages,
+    { role: 'user', content: userMessage },
+    { role: 'assistant', content: finalText }
+  ]
+
+  return {
+    message: finalText,
+    updatedMessages,
+  }
+}
 
   private async executeTool(toolName: string, input: any, userId: string) {
     const toolExecutors: Record<string, () => Promise<unknown>> = {
