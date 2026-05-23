@@ -18,8 +18,8 @@ export class RoadmapController {
     return this.roadmapService.getRoadmap(req.user.id)
   }
 
-  @Patch('week')
-  updateWeek(@Body('week') week: number, @Request() req: any) {
-    return this.roadmapService.updateWeek(req.user.id, week)
-  }
+  @Get('study-plan')
+  getStudyPlan(@Request() req: any) {
+    return this.roadmapService.getStudyPlan(req.user.id)
+}
 }

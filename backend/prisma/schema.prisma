@@ -19,6 +19,17 @@ model User {
   sessions      Session[]
   topicProgress TopicProgress[]
   examResults   ExamResult[]
+  studyPlan     StudyPlan?
+}
+
+model StudyPlan {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  plan      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 model ExamResult {
@@ -66,4 +77,6 @@ model TopicProgress {
   user User @relation(fields: [userId], references: [id])
 
   @@unique([userId, topic])
+  
 }
+

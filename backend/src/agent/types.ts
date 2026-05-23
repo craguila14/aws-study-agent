@@ -1,3 +1,4 @@
+
 export interface Tool {
   name: string
   description: string
@@ -64,6 +65,7 @@ export interface RoadmapResult {
   recommendedDailyStudyHours: number
   startingTopic: string
   startingDomain: ExamDomain
+  studyPlan: StudyPlan
 }
 
 export interface QuizResult {
@@ -126,7 +128,6 @@ export interface ExamResultData {
   completedAt: Date
 }
 
-// Progreso detallado por dificultad
 export interface TopicProgressDetailed {
   topic: string
   domain: ExamDomain
@@ -153,4 +154,25 @@ export interface WeakTopicsResult {
   inProgressTopics: TopicProgressDetailed[]
   notStartedTopics: string[]
   recommendation: string
+}
+
+export interface StudySession {
+  day: number
+  date: string
+  topic: string
+  domain: ExamDomain
+  material: string
+  estimatedMinutes: number
+  quiz: {
+    questionCount: number
+    difficulty: Difficulty
+  }
+}
+
+export interface StudyPlan {
+  totalDays: number
+  totalWeeks: number
+  daysPerWeek: number
+  minutesPerDay: number
+  sessions: StudySession[]
 }

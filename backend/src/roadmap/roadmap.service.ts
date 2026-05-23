@@ -14,70 +14,101 @@ const DOMAIN_TOPICS: Record<string, string[]> = {
 export class RoadmapService {
   constructor(private prisma: PrismaService) {}
 
+  
+
   async generate(dto: GenerateRoadmapDto, userId: string) {
     return executeGenerateRoadmap({ ...dto, userId }, this.prisma)
   }
 
-  async getRoadmap(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        roadmapWeek: true,
-        knowledgeLevel: true,
-        examDate: true,
-        topicProgress: true,
+ async getRoadmap(userId: string) {
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      roadmapWeek: true,
+      knowledgeLevel: true,
+      examDate: true,
+      topicProgress: true,
+    }
+  })
+
+  if (!user) throw new NotFoundException('User not found')
+
+  // Calculamos la semana actual desde el plan
+  const studyPlan = await this.prisma.studyPlan.findUnique({
+    where: { userId }
+  })
+
+  let currentWeek = user.roadmapWeek
+
+  if (studyPlan) {
+    const plan = studyPlan.plan as any
+    const today = new Date()
+    const currentSession = plan.sessions.find(
+      (s: any) => new Date(s.date) >= today
+    )
+
+    if (currentSession) {
+      currentWeek = Math.ceil(currentSession.day / plan.daysPerWeek)
+      
+      // Actualizamos en DB si cambió
+      if (currentWeek !== user.roadmapWeek) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { roadmapWeek: currentWeek }
+        })
       }
-    })
-
-    if (!user) throw new NotFoundException('User not found')
-
-    const roadmap = Object.entries(DOMAIN_TOPICS).map(([domain, topics]) => ({
-      domain,
-      topics: topics.map((topic, index) => {
-        const progress = user.topicProgress.find(p => p.topic === topic)
-
-       
-
-        const isUnlocked = true
-
-        return {
-          topic,
-          domain,
-          isUnlocked,
-          easyCompleted: progress?.easyCompleted ?? false,
-          mediumCompleted: progress?.mediumCompleted ?? false,
-          hardCompleted: progress?.hardCompleted ?? false,
-          topicCompleted: progress?.topicCompleted ?? false,
-          weakScore: progress?.weakScore ?? 0,
-          easyStats: {
-            correct: progress?.easyCorrect ?? 0,
-            total: progress?.easyTotal ?? 0,
-          },
-          mediumStats: {
-            correct: progress?.mediumCorrect ?? 0,
-            total: progress?.mediumTotal ?? 0,
-          },
-          hardStats: {
-            correct: progress?.hardCorrect ?? 0,
-            total: progress?.hardTotal ?? 0,
-          },
-        }
-      })
-    }))
-
-    return {
-      roadmapWeek: user.roadmapWeek,
-      knowledgeLevel: user.knowledgeLevel,
-      examDate: user.examDate,
-      domains: roadmap,
     }
   }
 
-  async updateWeek(userId: string, week: number) {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: { roadmapWeek: week },
-      select: { roadmapWeek: true }
+  // Construimos el roadmap con el estado de cada topic
+  const roadmap = Object.entries(DOMAIN_TOPICS).map(([domain, topics]) => ({
+    domain,
+    topics: topics.map(topic => {
+      const progress = user.topicProgress.find(p => p.topic === topic)
+
+      return {
+        topic,
+        domain,
+        isUnlocked: true,
+        easyCompleted: progress?.easyCompleted ?? false,
+        mediumCompleted: progress?.mediumCompleted ?? false,
+        hardCompleted: progress?.hardCompleted ?? false,
+        topicCompleted: progress?.topicCompleted ?? false,
+        weakScore: progress?.weakScore ?? 0,
+        easyStats: {
+          correct: progress?.easyCorrect ?? 0,
+          total: progress?.easyTotal ?? 0,
+        },
+        mediumStats: {
+          correct: progress?.mediumCorrect ?? 0,
+          total: progress?.mediumTotal ?? 0,
+        },
+        hardStats: {
+          correct: progress?.hardCorrect ?? 0,
+          total: progress?.hardTotal ?? 0,
+        },
+      }
     })
+  }))
+
+  return {
+    currentWeek,
+    knowledgeLevel: user.knowledgeLevel,
+    examDate: user.examDate,
+    domains: roadmap,
   }
+}
+
+
+
+  async getStudyPlan(userId: string) {
+
+    const studyPlan = await this.prisma.studyPlan.findUnique({
+      where: { userId }
+    })
+
+    if (!studyPlan) return null
+
+  return studyPlan.plan
+}
 }
